@@ -5,39 +5,54 @@ require('dotenv').config();
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
+// Recursively load all local commands
+const localCommandNames = new Set();
+const commandsPath = path.join(__dirname, '../commands');
+
+const loadCommandNames = (dir) => {
+  const files = fs.readdirSync(dir);
+
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+
+    if (stat.isDirectory()) {
+      loadCommandNames(filePath);
+    } else if (file.endsWith('.js')) {
+      const command = require(filePath);
+      if ('data' in command && command.data?.name) {
+        localCommandNames.add(command.data.name);
+      }
+    }
+  }
+};
+
 (async () => {
   try {
-    console.log('Fetching all registered commands...');
+    loadCommandNames(commandsPath);
+    console.log(`Found ${localCommandNames.size} local command(s): ${Array.from(localCommandNames).join(', ')}`);
+
+    console.log('Fetching all registered commands from Discord...');
 
     // Get all registered commands from Discord
-    const commands = await rest.get(
+    const registeredCommands = await rest.get(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
     );
 
-    if (commands.length === 0) {
-      console.log('✓ No commands registered.');
+    if (registeredCommands.length === 0) {
+      console.log('✓ No commands registered on Discord.');
       return;
     }
 
-    // Get all local command files
-    const commandsPath = path.join(__dirname, '../commands');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-    const localCommands = new Set(
-      commandFiles.map(file => {
-        const command = require(path.join(commandsPath, file));
-        return command.data?.name;
-      }).filter(Boolean),
-    );
-
-    // Find commands to delete (registered but not local)
-    const commandsToDelete = commands.filter(cmd => !localCommands.has(cmd.name));
+    // Find commands to delete (registered but not in local code)
+    const commandsToDelete = registeredCommands.filter(cmd => !localCommandNames.has(cmd.name));
 
     if (commandsToDelete.length === 0) {
-      console.log('✓ All registered commands exist locally. Nothing to delete.');
+      console.log('✓ All registered commands exist in your code. Nothing to delete.');
       return;
     }
 
-    console.log(`Found ${commandsToDelete.length} command(s) to delete:`);
+    console.log(`\nFound ${commandsToDelete.length} orphaned command(s) to delete:`);
     commandsToDelete.forEach(cmd => console.log(`  - ${cmd.name}`));
 
     // Delete old commands
@@ -45,10 +60,10 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
       await rest.delete(
         Routes.applicationGuildCommand(process.env.CLIENT_ID, process.env.GUILD_ID, cmd.id),
       );
-      console.log(`✓ Deleted command: ${cmd.name}`);
+      console.log(`✓ Deleted: ${cmd.name}`);
     }
 
-    console.log(`✓ Successfully deleted ${commandsToDelete.length} command(s).`);
+    console.log(`\n✓ Successfully cleaned up ${commandsToDelete.length} orphaned command(s).`);
   } catch (error) {
     console.error(error);
   }
