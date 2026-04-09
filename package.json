@@ -1,0 +1,19 @@
+{
+  "name": "xbftw-bot",
+  "version": "0.0.1",
+  "description": "Custom bot for XBFTW server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "deploy": "node src/utils/deploy-commands.js",
+    "clear": "node src/utils/clear-commands.js"
+  },
+  "keywords": ["discord", "bot"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.0",
+    "dotenv": "^16.3.1"
+  }
+}
