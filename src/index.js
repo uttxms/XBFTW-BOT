@@ -1,9 +1,9 @@
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const commandHandler = require('./handlers/commandHandler');
-const eventHandler = require('./handlers/eventHandler');
+const loadCommands = require('./handlers/commandHandler');
+const loadEvents = require('./handlers/eventHandler');
 require('dotenv').config();
 
-const client = new Client({
+const discordClient = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -12,13 +12,18 @@ const client = new Client({
   ],
 });
 
-// Initialize command and event collections
-client.commands = new Collection();
-client.events = new Collection();
+// Initialize collections for commands and events
+discordClient.commands = new Collection();
+discordClient.events = new Collection();
 
 // Load commands and events
-commandHandler(client);
-eventHandler(client);
-
-// Login to Discord
-client.login(process.env.DISCORD_TOKEN);
+try {
+  loadCommands(discordClient);
+  loadEvents(discordClient);
+  
+  // Login to Discord
+  discordClient.login(process.env.DISCORD_TOKEN);
+} catch (error) {
+  console.error('Failed to initialize bot:', error);
+  process.exit(1);
+}
